@@ -1,269 +1,218 @@
 # Sparse Matrix-Vector Multiplication (SpMV) on HPC Cluster
 
 ## Overview
-This project implements and evaluates Sparse Matrix-Vector Multiplication (SpMV) on matrices
-stored in Matrix Market (.mtx) format. Two implementations are provided:
 
-- a sequential version  
-- a parallel OpenMP version with configurable scheduling and chunk size  
-
-The project includes:
-- performance measurements (execution time, GFLOPS, memory bandwidth, arithmetic intensity)
-- hardware performance counters using `perf`
-- PBS job scripts for running experiments on an HPC cluster
-- Python scripts (executed locally) for generating plots from the results
-
-All experiments are automated through the provided PBS scripts.
+This project implements and evaluates Sparse Matrix–Vector Multiplication (SpMV) using a sequential and a parallel OpenMP version. Matrices are stored in Matrix Market (.mtx) format. The evaluation includes execution time, GFLOPS, memory bandwidth, arithmetic intensity (AI), speedup, efficiency, scheduling effects, chunk-size effects, and hardware performance counters collected using perf. All experiments are executed on an HPC cluster via PBS job scripts, while plots are generated locally using Python.
 
 ---
 
 ## Repository Structure
 
-repo/  
-│-- src/  
-│   ├── main_sequential.cpp  
-│   └── main_parallel.cpp  
-│  
-│-- scripts/  
-│   ├── run_sequential.pbs  
-│   ├── run_parallel.pbs  
-│   ├── run_sequential_perf.pbs  
-│   └── run_parallel_perf.pbs  
-│  
-│-- matrix/  
-│-- results/  
-│-- plots/  
-│-- README.md  
+repo/
+│-- src/
+│   ├── main_sequential.cpp
+│   └── main_parallel.cpp
+│
+│-- scripts/
+│   ├── run_sequential.pbs
+│   ├── run_parallel.pbs
+│   ├── run_sequential_perf.pbs
+│   └── run_parallel_perf.pbs
+│
+│-- matrix/
+│-- results/
+│-- plots/
+│-- README.md
 
 ---
 
 ## HPC Environment
 
-### Required modules
+The PBS scripts load the following modules:
 
-```
 module load gcc91
-module load perf      # only for profiling
-```
+module load perf
 
-### Resources for parallel jobs
+Parallel jobs request:
 
-```
 #PBS -l select=1:ncpus=32:mem=16gb
 #PBS -l place=excl
 #PBS -q short_cpuQ
-```
 
-### Resources for sequential jobs
+Sequential jobs request:
 
-```
 #PBS -l select=1:ncpus=1:mem=4gb
-```
 
 ---
 
 ## Build Instructions
 
-Compilation is performed automatically inside the PBS scripts.
+Compilation is automatically handled inside the PBS scripts.
 
 ### Sequential build
-```
 g++ -std=c++11 src/main_sequential.cpp -o results/main_sequential
-```
 
 ### Parallel build
-```
 g++ -std=c++11 -fopenmp src/main_parallel.cpp -o results/main_parallel
-```
 
 ---
 
 ## Running Experiments on the Cluster
 
 ### 1. Parallel execution
+qsub -v MATRIX=<matrix.mtx> scripts/run_parallel.pbs
 
-```
-qsub -v MATRIX=filename.mtx scripts/run_parallel.pbs
-```
+This script:
+- compiles the parallel code
+- tests scheduling policies (static, dynamic, guided)
+- tests chunk sizes (1, 8, 64, 256, 512)
+- tests threads (2, 4, 8, 16, 32)
+- writes results to results/<matrix>_parallel.csv
 
-The script automatically:
-- compiles the parallel code  
-- evaluates scheduling policies: static, dynamic, guided  
-- tests thread counts: 2, 4, 8, 16, 32  
-- tests chunk sizes: 1, 8, 64, 256, 512  
-- performs 12 measurements for each configuration  
-
-Output file:
-
-```
-results/<matrixname>_parallel.csv
-```
-
-CSV format:
-
-```
+Parallel CSV format:
 schedule,threads,chunk,time_ms,gflops,bw_gbs,ai
-```
 
 ---
 
 ### 2. Sequential execution
-
-```
-qsub -v MATRIX=filename.mtx scripts/run_sequential.pbs
-```
+qsub -v MATRIX=<matrix.mtx> scripts/run_sequential.pbs
 
 Output:
-
-```
-results/<matrixname>_sequential.csv
-```
+results/<matrix>_sequential.csv
 
 ---
 
 ### 3. Hardware profiling (perf)
 
-#### Parallel profiling
-```
-qsub -v MATRIX=filename.mtx scripts/run_parallel_perf.pbs
-```
+Parallel profiling:
+qsub -v MATRIX=<matrix.mtx> scripts/run_parallel_perf.pbs
 
-Output columns:
-```
+Sequential profiling:
+qsub -v MATRIX=<matrix.mtx> scripts/run_sequential_perf.pbs
+
+Perf CSV format:
 schedule,threads,chunk,cycles,instructions,cache_ref,cache_miss
-```
-
-#### Sequential profiling
-```
-qsub -v MATRIX=filename.mtx scripts/run_sequential_perf.pbs
-```
 
 ---
 
 ## Parameters
 
 ### Number of threads
-```
 export OMP_NUM_THREADS=<value>
-```
 
 ### Scheduling policy
-```
-export OMP_SCHEDULE="<static|dynamic|guided>,<chunk>"
-```
+export OMP_SCHEDULE="<policy>,<chunk>"
 
-### Selecting the input matrix
-```
-qsub -v MATRIX=myMatrix.mtx scripts/<job>.pbs
-```
+policy ∈ {static, dynamic, guided}  
+chunk ∈ {1, 8, 64, 256, 512}
+
+### Selecting the matrix
+qsub -v MATRIX=<file.mtx> scripts/<job>.pbs
 
 ---
 
 ## Plotting (executed locally)
 
-The cluster cannot run matplotlib, so plots are generated locally from the CSV files in `results/`.
+The cluster environment does not support matplotlib.  
+Plots must be generated locally.
 
-### Install dependencies
+### Install required Python packages:
+pip install numpy pandas matplotlib
 
-```
-pip install pandas matplotlib
-```
-
-### Run the plotting scripts
-
-```
+### Generate plots:
 python3 scripts/bandwidth.py
 python3 scripts/efficiency.py
 python3 scripts/chunk_evidence.py
 python3 scripts/parallel_cache_misses.py
-```
 
-Output plots stored in:
-
-```
+All plots are saved in:
 plots/
-```
 
 ---
 
 ## Generated Plots
 
-### 1. Bandwidth (90th Percentile)
-- plots/bandwidth_90pct_static.png  
-- plots/bandwidth_90pct_dynamic.png  
-- plots/bandwidth_90pct_guided.png  
+### Bandwidth (90th percentile)
+plots/bandwidth_90pct_static.png  
+plots/bandwidth_90pct_dynamic.png  
+plots/bandwidth_90pct_guided.png  
 
-### 2. Cache Miss Rate
-- plots/cache_missrate_schedule_static.png  
-- plots/cache_missrate_schedule_dynamic.png  
-- plots/cache_missrate_schedule_guided.png  
+### Cache miss rate
+plots/cache_missrate_schedule_static.png  
+plots/cache_missrate_schedule_dynamic.png  
+plots/cache_missrate_schedule_guided.png  
 
-### 3. Efficiency
-- plots/efficiency_static.png  
-- plots/efficiency_dynamic.png  
-- plots/efficiency_guided.png  
+### Efficiency
+plots/efficiency_static.png  
+plots/efficiency_dynamic.png  
+plots/efficiency_guided.png  
 
-### 4. Speedup Across All Chunk Sizes
-- plots/static_ALLCHUNKS_speedup.png  
-- plots/dynamic_ALLCHUNKS_speedup.png  
-- plots/guided_ALLCHUNKS_speedup.png  
+### Speedup across all chunk sizes
+plots/static_ALLCHUNKS_speedup.png  
+plots/dynamic_ALLCHUNKS_speedup.png  
+plots/guided_ALLCHUNKS_speedup.png  
 
-### 5. Time vs Chunk Size
-- plots/time_vs_chunk_static.png  
-- plots/time_vs_chunk_dynamic.png  
-- plots/time_vs_chunk_guided.png  
-
----
-
-## Implemented Methods
-
-### Sequential SpMV
-- loads the .mtx file in COO format  
-- sorts entries by row, col  
-- builds a prefix array (CSR-like)  
-- performs a standard SpMV  
-- measures execution time via `std::chrono`  
-
-### Parallel SpMV (OpenMP)
-- same preprocessing  
-- OpenMP loop:
-
-```
-#pragma omp parallel for schedule(runtime)
-```
-
-Scheduling fully controlled through environment variables.
+### Time vs chunk size
+plots/time_vs_chunk_static.png  
+plots/time_vs_chunk_dynamic.png  
+plots/time_vs_chunk_guided.png  
 
 ---
 
-## Collected Metrics
+## Matrix Files (Download and Installation)
 
-Each experiment reports:
+Several matrices are included directly in the repository:
 
-- runtime in milliseconds  
-- GFLOPS  
-- bandwidth (GB/s)  
-- arithmetic intensity  
+bcsstm08.mtx  
+cavity07.mtx  
+ecology1.mtx  
+G67.mtx  
+hcircuit.mtx  
+msc10848.mtx  
 
-Perf experiments additionally measure:
+Two matrices exceed GitHub’s 100 MB file-size limit and are **not included**:
 
-- CPU cycles  
-- instructions retired  
-- cache references  
-- cache misses  
+nlpkkt80.mtx  (~251 MB)  
+x104.mtx      (~141 MB)
+
+### Download the missing matrices
+
+nlpkkt80.mtx:
+https://sparse.tamu.edu/Kkt/nlpkkt80
+
+x104.mtx:
+https://sparse.tamu.edu/HB/x104
+
+Download the Matrix Market (.mtx) file.
+
+### Upload to the HPC cluster
+
+From your local machine:
+scp nlpkkt80.mtx USER@hpc-head-n1.unitn.it:/path/to/repo/matrix/
+scp x104.mtx USER@hpc-head-n1.unitn.it:/path/to/repo/matrix/
+
+### Required directory structure
+repo/
+ └── matrix/
+      ├── nlpkkt80.mtx
+      └── x104.mtx
+
+The PBS scripts automatically detect and use the matrices if present.
 
 ---
 
-## Reproducibility Notes
+## Reproducibility
 
-- All experiments use PBS job scripts  
-- No absolute paths are used  
-- The MATRIX variable controls the matrix used in all runs  
-- All CSV files are stored in `results/`  
-- All plots can be regenerated from those CSVs  
-
-Any other user with access to the same cluster environment can reproduce the results.
+This project is fully reproducible because:
+- no absolute paths are used  
+- all experiments are performed through PBS scripts  
+- all performance results are exported to CSV  
+- all plot scripts regenerate the exact figures  
+- missing large matrices can be added manually
 
 ---
 
+## Contact
+paolo.sarcletti@studenti.unitn.it
 
+Paolo Sarcletti
