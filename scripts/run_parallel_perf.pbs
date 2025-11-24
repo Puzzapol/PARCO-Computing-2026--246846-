@@ -1,0 +1,63 @@
+#!/bin/bash
+#PBS -N perf_parallel
+#PBS -o results/perf_parallel.out
+#PBS -e results/perf_parallel.err
+#PBS -q short_cpuQ
+#PBS -l select=1:ncpus=32:mem=16gb
+#PBS -l walltime=02:00:00
+#PBS -l place=excl
+
+cd $PBS_O_WORKDIR
+module load gcc91
+module load perf
+
+mkdir -p results
+
+# Compila il parallelo
+g++ -std=c++11 -fopenmp src/main_parallel.cpp -o results/perf_parallel
+chmod +x results/perf_parallel
+
+export MATRIX
+
+if [[ ! -f "matrix/$MATRIX" ]]; then
+    echo "matrix not found"
+    exit 1
+fi
+
+MTXBASE="${MATRIX%.mtx}"
+
+OUT="results/${MTXBASE}_parallel_perf.csv"
+echo "schedule,threads,chunk,cycles,instructions,cache_ref,cache_miss" > "$OUT"
+
+SCHEDULES=("static" "dynamic" "guided")
+THREADS=(2 4 8 16 32)
+CHUNKS=(1 8 64 256 512)
+
+export OMP_PROC_BIND=close
+export OMP_PLACES=cores
+
+for sched in "${SCHEDULES[@]}"; do
+    for th in "${THREADS[@]}"; do
+        for ch in "${CHUNKS[@]}"; do
+
+            export OMP_NUM_THREADS=$th
+            export OMP_SCHEDULE="$sched,$ch"
+
+            # esecuzione MUTAAAA
+            LC_NUMERIC=C perf stat \
+                -e cycles,instructions,cache-references,cache-misses \
+                ./results/perf_parallel \
+                >/dev/null 2> perf_tmp.txt
+
+            cycles=$(grep "cycles" perf_tmp.txt | awk '{print $1}')
+            instr=$(grep "instructions" perf_tmp.txt | awk '{print $1}')
+            ref=$(grep "cache-references" perf_tmp.txt | awk '{print $1}')
+            miss=$(grep "cache-misses" perf_tmp.txt | awk '{print $1}')
+
+            echo "$sched,$th,$ch,$cycles,$instr,$ref,$miss" >> "$OUT"
+
+            rm -f perf_tmp.txt
+        done
+    done
+done
+

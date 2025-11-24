@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -N perf_sequential
+#PBS -o results/perf_sequential.out
+#PBS -e results/perf_sequential.err
+#PBS -q short_cpuQ
+#PBS -l select=1:ncpus=1:mem=4gb
+#PBS -l walltime=00:30:00
+#PBS -l place=excl
+
+cd $PBS_O_WORKDIR
+module load gcc91
+module load perf
+
+mkdir -p results
+
+g++ -std=c++11 src/main_sequential.cpp -o results/perf_sequential
+chmod +x results/perf_sequential
+
+export MATRIX
+
+if [[ ! -f "matrix/$MATRIX" ]]; then
+    echo "matrix not found"
+    exit 1
+fi
+
+MTXBASE="${MATRIX%.mtx}"
+
+OUT="results/${MTXBASE}_sequential_perf.csv"
+echo "cycles,instructions,cache_ref,cache_miss" > "$OUT"
+
+LC_NUMERIC=C perf stat \
+    -e cycles,instructions,cache-references,cache-misses \
+    ./results/perf_sequential \
+    > /dev/null 2> perf_tmp.txt
+
+cycles=$(grep "cycles" perf_tmp.txt | awk '{print $1}')
+instr=$(grep "instructions" perf_tmp.txt | awk '{print $1}')
+ref=$(grep "cache-references" perf_tmp.txt | awk '{print $1}')
+miss=$(grep "cache-misses" perf_tmp.txt | awk '{print $1}')
+
+echo "$cycles,$instr,$ref,$miss" >> "$OUT"
+
+rm -f perf_tmp.txt
+

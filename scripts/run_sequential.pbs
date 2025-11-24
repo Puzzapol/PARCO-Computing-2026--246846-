@@ -1,0 +1,28 @@
+#!/bin/bash
+#PBS -N main_sequential
+#PBS -o results/main_sequential.out
+#PBS -e results/main_sequential.err
+#PBS -q short_cpuQ
+#PBS -l select=1:ncpus=1:mem=4gb
+#PBS -l walltime=02:00:00
+
+cd $PBS_O_WORKDIR
+module load gcc91
+mkdir -p results
+
+g++ -std=c++11 src/main_sequential.cpp -o results/main_sequential
+if [[ ! -f "matrix/$MATRIX" ]]; then
+    echo "Error: matrix not exist"
+    exit 1
+fi
+
+MTXBASE="${MATRIX%.mtx}"
+OUT="results/${MTXBASE}_sequential.csv"
+echo "time_ms,gflops,bandwidth_gbs,ai" > "$OUT"
+
+RESULTS=$(./results/main_sequential)
+
+while read -r LINE; do
+    echo "$LINE" >> "$OUT"
+done <<< "$RESULTS"
+

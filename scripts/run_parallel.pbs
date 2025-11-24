@@ -1,0 +1,48 @@
+#!/bin/bash
+#PBS -N main_parallel
+#PBS -o results/main_parallel.out
+#PBS -e results/main_parallel.err
+#PBS -q short_cpuQ
+#PBS -l select=1:ncpus=32:mem=16gb
+#PBS -l walltime=02:00:00
+#PBS -l place=excl
+
+cd $PBS_O_WORKDIR
+module load gcc91
+mkdir -p results
+
+g++ -std=c++11 -fopenmp src/main_parallel.cpp -o results/main_parallel
+
+if [[ ! -f "matrix/$MATRIX" ]]; then
+    exit 1
+fi
+
+MTXBASE="${MATRIX%.mtx}"
+OUT="results/${MTXBASE}_parallel.csv"
+
+echo "schedule,threads,chunk,time_ms,gflops,bw_gbs,ai" > "$OUT"
+
+SCHEDULES=("static" "dynamic" "guided")
+THREADS=(2 4 8 16 32)
+CHUNKS=(1 8 64 256 512)
+
+export OMP_PROC_BIND=close
+export OMP_PLACES=cores
+
+for sched in "${SCHEDULES[@]}"; do
+    for th in "${THREADS[@]}"; do
+        for ch in "${CHUNKS[@]}"; do
+
+            export OMP_NUM_THREADS=$th
+            export OMP_SCHEDULE="$sched,$ch"
+
+            RES=$(./results/main_parallel)
+
+            while IFS=',' read -r ms gflops bw ai; do
+                echo "$sched,$th,$ch,$ms,$gflops,$bw,$ai" >> "$OUT"
+            done <<< "$RES"
+
+        done
+    done
+done
+
