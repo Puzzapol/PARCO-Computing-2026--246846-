@@ -9,20 +9,21 @@ This project implements and evaluates Sparse Matrix–Vector Multiplication (SpM
 ## Repository Structure
 
 repo/
-│-- src/
-│   ├── main_sequential.cpp
-│   └── main_parallel.cpp
-│
-│-- scripts/
-│   ├── run_sequential.pbs
-│   ├── run_parallel.pbs
-│   ├── run_sequential_perf.pbs
-│   └── run_parallel_perf.pbs
-│
-│-- matrix/
-│-- results/
-│-- plots/
-│-- README.md
+|-- src/
+|   |-- main_sequential.cpp
+|   |-- main_parallel.cpp
+|
+|-- scripts/
+|   |-- run_sequential.pbs
+|   |-- run_parallel.pbs
+|   |-- run_sequential_perf.pbs
+|   |-- run_parallel_perf.pbs
+|
+|-- matrix/
+|-- results/
+|-- plots/
+|-- README.md
+
 
 ---
 
@@ -193,9 +194,9 @@ scp x104.mtx USER@hpc-head-n1.unitn.it:/path/to/repo/matrix/
 
 ### Required directory structure
 repo/
- └── matrix/
-      ├── nlpkkt80.mtx
-      └── x104.mtx
+ |--matrix/
+      |-- nlpkkt80.mtx
+      |-- x104.mtx
 
 The PBS scripts automatically detect and use the matrices if present.
 
@@ -214,5 +215,3 @@ This project is fully reproducible because:
 
 ## Contact
 paolo.sarcletti@studenti.unitn.it
-
-Paolo Sarcletti
