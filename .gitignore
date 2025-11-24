@@ -1,2 +1,6 @@
 matrix/nlpkkt80.mtx
 matrix/x104.mtx
+matrix/*.mtx
+results/*
+plots/*
+
